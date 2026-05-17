@@ -1,4 +1,4 @@
-# mobile-app
+# dream-mobile-app
 
 顧客向け共通LIFF（`role=customer`）の実装です。  
 画面仕様 `C-01 / C-02 / C-04 / C-05` を中心に、初回連携とプロフィール登録フローを含みます。
