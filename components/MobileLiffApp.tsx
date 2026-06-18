@@ -1,8 +1,8 @@
 "use client";
 
 import liff from "@line/liff";
-import { useMemo, useState } from "react";
-import type { DashboardResponse, LiffSessionResponse } from "@/lib/types";
+import { useEffect, useState } from "react";
+import type { DashboardResponse, LiffResolveResponse, LiffSessionResponse } from "@/lib/types";
 
 type Phase = "loading" | "link" | "profile" | "home";
 type Tab = "history" | "delivery" | "holiday" | "notice";
@@ -16,11 +16,20 @@ type Customer = {
   address: string | null;
 };
 
-export function MobileLiffApp() {
+type Bootstrap = {
+  lineUserId: string;
+  displayName: string;
+  resolve: LiffResolveResponse;
+};
+
+type Props = {
+  bootstrap?: Bootstrap;
+};
+export function MobileLiffApp({ bootstrap }: Props) {
   const [phase, setPhase] = useState<Phase>("loading");
   const [tab, setTab] = useState<Tab>("history");
-  const [lineUserId, setLineUserId] = useState("");
-  const [displayName, setDisplayName] = useState("");
+  const [lineUserId, setLineUserId] = useState(bootstrap?.lineUserId ?? "");
+  const [displayName, setDisplayName] = useState(bootstrap?.displayName ?? "");
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [dashboard, setDashboard] = useState<DashboardResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -42,9 +51,65 @@ export function MobileLiffApp() {
   const [holidayEnd, setHolidayEnd] = useState("");
   const [holidayReason, setHolidayReason] = useState("");
 
-  useMemo(() => {
+  function applyCustomerSession(json: LiffSessionResponse, userId: string) {
+    if (!json.ok) throw new Error(json.message);
+    if (!json.linked) {
+      setPhase("link");
+      return;
+    }
+
+    setCustomer(json.customer);
+    setPostalCode(json.customer.postal_code ?? "");
+    setAddress(json.customer.address ?? "");
+    setEmergencyName(json.profile?.emergency_contact_name ?? "");
+    setEmergencyPhone(json.profile?.emergency_contact_phone ?? "");
+    setHouseholdSize(json.profile?.household_size ? String(json.profile.household_size) : "");
+    setFamilyComposition(json.profile?.family_composition ?? "");
+
+    if (!json.profile?.profile_confirmed_at) {
+      setPhase("profile");
+    } else {
+      setPhase("home");
+      void loadDashboard(userId);
+    }
+  }
+
+  function applyResolve(resolve: LiffResolveResponse, userId: string) {
+    if (!resolve.ok) throw new Error(resolve.message);
+    if (resolve.role !== "customer") throw new Error("顧客向け画面を表示できません。");
+    if (!resolve.linked) {
+      setPhase("link");
+      return;
+    }
+    setCustomer(resolve.customer);
+    setPostalCode(resolve.customer.postal_code ?? "");
+    setAddress(resolve.customer.address ?? "");
+    setEmergencyName(resolve.profile?.emergency_contact_name ?? "");
+    setEmergencyPhone(resolve.profile?.emergency_contact_phone ?? "");
+    setHouseholdSize(resolve.profile?.household_size ? String(resolve.profile.household_size) : "");
+    setFamilyComposition(resolve.profile?.family_composition ?? "");
+    if (!resolve.profile?.profile_confirmed_at) {
+      setPhase("profile");
+    } else {
+      setPhase("home");
+      void loadDashboard(userId);
+    }
+  }
+
+  useEffect(() => {
+    if (bootstrap) {
+      setLineUserId(bootstrap.lineUserId);
+      setDisplayName(bootstrap.displayName);
+      try {
+        applyResolve(bootstrap.resolve, bootstrap.lineUserId);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "初期化エラー");
+        setPhase("link");
+      }
+      return;
+    }
     void init();
-  }, []);
+  }, [bootstrap]);
 
   async function init() {
     try {
@@ -65,27 +130,7 @@ export function MobileLiffApp() {
         body: JSON.stringify({ lineUserId: profile.userId }),
       });
       const json = (await res.json()) as LiffSessionResponse;
-      if (!json.ok) throw new Error(json.message);
-
-      if (!json.linked) {
-        setPhase("link");
-        return;
-      }
-
-      setCustomer(json.customer);
-      setPostalCode(json.customer.postal_code ?? "");
-      setAddress(json.customer.address ?? "");
-      setEmergencyName(json.profile?.emergency_contact_name ?? "");
-      setEmergencyPhone(json.profile?.emergency_contact_phone ?? "");
-      setHouseholdSize(json.profile?.household_size ? String(json.profile.household_size) : "");
-      setFamilyComposition(json.profile?.family_composition ?? "");
-
-      if (!json.profile?.profile_confirmed_at) {
-        setPhase("profile");
-      } else {
-        setPhase("home");
-        void loadDashboard(profile.userId);
-      }
+      applyCustomerSession(json, profile.userId);
     } catch (e) {
       setError(e instanceof Error ? e.message : "初期化エラー");
       setPhase("link");
@@ -111,10 +156,21 @@ export function MobileLiffApp() {
     });
     const json = (await res.json()) as { ok: boolean; message?: string };
     if (!json.ok) {
-      setError(json.message ?? "連携に失敗しました。");
+      setError(json.message ?? "登録に失敗しました。");
       return;
     }
-    setSuccess("連携しました。続けて初回情報を入力してください。");
+    const sessionRes = await fetch("/api/liff/session", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ lineUserId }),
+    });
+    const sessionJson = (await sessionRes.json()) as LiffSessionResponse;
+    if (sessionJson.ok && sessionJson.linked) {
+      setCustomer(sessionJson.customer);
+      setPostalCode(sessionJson.customer.postal_code ?? "");
+      setAddress(sessionJson.customer.address ?? "");
+    }
+    setSuccess("登録しました。続けて初回情報を入力してください。");
     setPhase("profile");
   }
 
@@ -184,17 +240,17 @@ export function MobileLiffApp() {
 
       {phase === "link" && (
         <section className="card">
-          <h2>初回連携</h2>
-          <p>顧客コードと電話番号で本人確認を行います。</p>
+          <h2>初回登録</h2>
+          <p>初回ログイン時は、顧客番号と携帯番号で本人確認を行います。2回目以降はLINEログインで自動的に入れます。</p>
           <label>
-            顧客コード
+            顧客番号
             <input value={customerCode} onChange={(e) => setCustomerCode(e.target.value)} />
           </label>
           <label>
-            電話番号
-            <input value={phone} onChange={(e) => setPhone(e.target.value)} />
+            携帯番号
+            <input value={phone} onChange={(e) => setPhone(e.target.value)} inputMode="tel" />
           </label>
-          <button onClick={submitLink}>連携する</button>
+          <button onClick={() => void submitLink()}>登録する</button>
         </section>
       )}
 

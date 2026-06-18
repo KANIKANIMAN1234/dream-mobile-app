@@ -35,7 +35,7 @@ export async function POST(req: Request) {
     }
 
     if (!customers || customers.length === 0) {
-      return NextResponse.json({ ok: false, message: "顧客コードが見つかりません。" }, { status: 404 });
+      return NextResponse.json({ ok: false, message: "顧客番号と携帯番号を確認してください。" }, { status: 404 });
     }
 
     if (customers.length > 1) {

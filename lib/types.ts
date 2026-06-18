@@ -1,3 +1,73 @@
+export type EmployeePaidLeave = {
+  grantedDays: number;
+  usedDays: number;
+  remainingDays: number;
+  mandatoryProgress: number;
+};
+
+export type EmployeeSessionResponse =
+  | {
+      ok: true;
+      linked: true;
+      employee: {
+        id: string;
+        employee_code_4: string;
+        name: string;
+      };
+      paidLeave: EmployeePaidLeave;
+    }
+  | {
+      ok: true;
+      linked: false;
+      message: string;
+    }
+  | {
+      ok: false;
+      message: string;
+    };
+
+export type LiffResolveResponse =
+  | {
+      ok: true;
+      role: "employee";
+      employee: {
+        id: string;
+        employee_code_4: string;
+        name: string;
+      };
+      paidLeave: EmployeePaidLeave;
+    }
+  | {
+      ok: true;
+      role: "customer";
+      linked: true;
+      customer: {
+        id: string;
+        customer_code: string;
+        name: string;
+        phone: string;
+        postal_code: string | null;
+        address: string | null;
+      };
+      profile: {
+        emergency_contact_name: string | null;
+        emergency_contact_phone: string | null;
+        household_size: number | null;
+        family_composition: string | null;
+        profile_confirmed_at: string | null;
+      } | null;
+    }
+  | {
+      ok: true;
+      role: "customer";
+      linked: false;
+      message: string;
+    }
+  | {
+      ok: false;
+      message: string;
+    };
+
 export type LiffSessionResponse =
   | {
       ok: true;

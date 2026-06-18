@@ -1,5 +1,5 @@
-import { EmployeeLiffApp } from "@/components/EmployeeLiffApp";
+import { LiffEntry } from "@/components/LiffEntry";
 
 export default function EmployeePage() {
-  return <EmployeeLiffApp />;
+  return <LiffEntry forceRole="employee" />;
 }

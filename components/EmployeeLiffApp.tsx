@@ -1,11 +1,21 @@
 "use client";
 
-import liff from "@line/liff";
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { generateReflection, requestReflection, type ReflectionResult } from "@/lib/aiReflection";
+import type { EmployeeSessionResponse } from "@/lib/types";
 
 type Phase = "loading" | "link" | "home";
 type Tab = "fix" | "leave" | "paid" | "reflection";
+
+type Bootstrap = {
+  lineUserId: string;
+  displayName: string;
+  session: EmployeeSessionResponse;
+};
+
+type Props = {
+  bootstrap?: Bootstrap;
+};
 
 type TodayLog = {
   id: string;
@@ -74,10 +84,11 @@ function statusLabel(status: string) {
   return status;
 }
 
-export function EmployeeLiffApp() {
+export function EmployeeLiffApp({ bootstrap }: Props) {
   const [phase, setPhase] = useState<Phase>("loading");
   const [tab, setTab] = useState<Tab>("fix");
-  const [displayName, setDisplayName] = useState("");
+  const [displayName, setDisplayName] = useState(bootstrap?.displayName ?? "");
+  const [lineUserId, setLineUserId] = useState(bootstrap?.lineUserId ?? "");
   const [employeeCode, setEmployeeCode] = useState("");
   const [profile, setProfile] = useState<EmployeeProfile | null>(null);
   const [todayLogs, setTodayLogs] = useState<TodayLog[]>(demoTodayLogs());
@@ -111,63 +122,80 @@ export function EmployeeLiffApp() {
   const demoMode =
     process.env.NEXT_PUBLIC_DEMO_MODE === "true" || process.env.NEXT_PUBLIC_DEMO_SCOPE === "attendance";
 
-  useMemo(() => {
-    void init();
-  }, []);
-
-  async function init() {
-    try {
-      const liffId = process.env.NEXT_PUBLIC_LIFF_ID_EMPLOYEE ?? process.env.NEXT_PUBLIC_LIFF_ID;
-      if (!liffId) {
-        if (demoMode) {
-          setDisplayName("デモユーザー");
-          setPhase("link");
-          return;
-        }
-        throw new Error("NEXT_PUBLIC_LIFF_ID が未設定です。");
-      }
-      await liff.init({ liffId });
-      if (!liff.isLoggedIn()) {
-        liff.login();
-        return;
-      }
-      const lineProfile = await liff.getProfile();
-      setDisplayName(lineProfile.displayName);
-      const savedCode = window.localStorage.getItem("employee_code_4");
-      if (savedCode && demoProfiles[savedCode]) {
-        setProfile(demoProfiles[savedCode]);
-        setEmployeeCode(savedCode);
-        setPhase("home");
-        return;
-      }
+  function applySession(session: EmployeeSessionResponse) {
+    if (!session.ok) {
+      setError(session.message);
       setPhase("link");
-    } catch (e) {
-      if (demoMode) {
-        setDisplayName("デモユーザー");
-        setPhase("link");
-        return;
-      }
-      setError(e instanceof Error ? e.message : "初期化エラー");
-      setPhase("link");
+      return;
     }
+    if (!session.linked) {
+      setPhase("link");
+      return;
+    }
+    setProfile({
+      code4: session.employee.employee_code_4,
+      name: session.employee.name,
+      grantedDays: session.paidLeave.grantedDays,
+      usedDays: session.paidLeave.usedDays,
+      remainingDays: session.paidLeave.remainingDays,
+      mandatoryProgress: session.paidLeave.mandatoryProgress,
+    });
+    setEmployeeCode(session.employee.employee_code_4);
+    setPhase("home");
   }
 
-  function submitLink() {
+  useEffect(() => {
+    if (bootstrap) {
+      setLineUserId(bootstrap.lineUserId);
+      setDisplayName(bootstrap.displayName);
+      applySession(bootstrap.session);
+      return;
+    }
+    if (demoMode) {
+      setDisplayName("デモユーザー");
+      setPhase("link");
+      return;
+    }
+    setError("ログイン情報を取得できませんでした。");
+    setPhase("link");
+  }, [bootstrap]);
+
+  async function submitLink() {
     setError(null);
     const code = employeeCode.trim();
     if (!/^[0-9]{4}$/.test(code)) {
       setError("社員コードは4桁の数字で入力してください。");
       return;
     }
-    const matched = demoProfiles[code];
-    if (!matched) {
-      setError("社員コードを確認してください。（デモ: 1001 / 1002 / 1003）");
+
+    if (!lineUserId) {
+      if (demoMode) {
+        const matched = demoProfiles[code];
+        if (!matched) {
+          setError("社員コードを確認してください。（デモ: 1001 / 1002 / 1003）");
+          return;
+        }
+        setProfile(matched);
+        setPhase("home");
+        setSuccess(`${matched.name} さんとしてログインしました。`);
+        return;
+      }
+      setError("LINEログインが必要です。");
       return;
     }
-    window.localStorage.setItem("employee_code_4", code);
-    setProfile(matched);
-    setPhase("home");
-    setSuccess(`${matched.name} さんとしてログインしました。`);
+
+    const res = await fetch("/api/liff/employee/link", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ lineUserId, employeeCode4: code }),
+    });
+    const json = (await res.json()) as EmployeeSessionResponse;
+    if (!json.ok || !json.linked) {
+      setError(!json.ok ? json.message : "連携に失敗しました。");
+      return;
+    }
+    applySession(json);
+    setSuccess(`${json.employee.name} さんとしてログインしました。`);
   }
 
   function submitFixRequest() {
@@ -252,7 +280,7 @@ export function EmployeeLiffApp() {
       {phase === "link" && (
         <section className="card">
           <h2>初回紐付け（E-00）</h2>
-          <p>4桁の社員コードを入力して本人確認を行います。</p>
+          <p>PC管理画面でLINE連携済みの方は自動ログインされます。未連携の方は4桁の社員コードで本人確認を行います。</p>
           <label>
             社員コード（4桁）
             <input value={employeeCode} onChange={(e) => setEmployeeCode(e.target.value)} inputMode="numeric" />
