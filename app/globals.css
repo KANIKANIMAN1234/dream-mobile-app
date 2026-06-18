@@ -121,3 +121,158 @@ li {
   color: #666;
   margin-top: 8px;
 }
+
+.employeeApp .employeeHeader {
+  position: relative;
+}
+
+.demoPill {
+  display: inline-block;
+  margin-top: 8px;
+  background: #fff3cd;
+  color: #856404;
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 999px;
+}
+
+.employeeTabs {
+  grid-template-columns: 1fr 1fr;
+}
+
+.reflectionBox {
+  margin-top: 12px;
+  background: #f7f9fc;
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.reflectionBox h3,
+.reflectionBox h4 {
+  margin: 0 0 8px;
+  font-size: 0.95rem;
+}
+
+.reflectionBox p {
+  margin: 0 0 10px;
+  line-height: 1.6;
+  font-size: 0.9rem;
+}
+
+.employeeTabs button.active {
+  background: #0b5ed7;
+}
+
+.muted {
+  color: #667;
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+.logList {
+  background: #f7f9fc;
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+}
+
+.logList h3 {
+  margin: 0 0 8px;
+  font-size: 0.95rem;
+}
+
+.logList li.missing {
+  color: #b63d3d;
+  font-weight: 600;
+}
+
+.timeRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.requestList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.requestList li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 0;
+  border-bottom: 1px solid #edf1f6;
+}
+
+.requestList .status {
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: #fef4df;
+  color: #b66d00;
+}
+
+.requestList .status.approved {
+  background: #e8f8f0;
+  color: #1f8f3f;
+}
+
+.paidGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.paidCard {
+  background: #f7f9fc;
+  border-radius: 10px;
+  padding: 10px;
+  text-align: center;
+}
+
+.paidCard.highlight {
+  background: #e8f2ff;
+  border: 1px solid #b8d4ff;
+}
+
+.paidLabel {
+  font-size: 0.78rem;
+  color: #667;
+}
+
+.paidValue {
+  margin-top: 4px;
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.mandatoryBox {
+  margin: 12px 0;
+}
+
+.mandatoryLabel {
+  font-size: 0.88rem;
+  margin-bottom: 6px;
+}
+
+.progressTrack {
+  height: 10px;
+  background: #e4e9f0;
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  background: #f39c12;
+}
+
+.progressFill.ok {
+  background: #27ae60;
+}
